@@ -498,17 +498,15 @@ void Decompress(const char *memblock, const int size, const std::string &filenam
         }
 
         end += 8;
-
         if (end == DECOMP_BUFF_SIZE)
         {
             end = 0;
         }
 
         len += 8;
-
         if (len > DECOMP_BUFF_SIZE)
         {
-            std::cout << "Length overwrote data" << std::endl;
+            throw std::runtime_error("ERROR: Length overwrote data");
         }
 
         if (len + 8 >= DECOMP_BUFF_SIZE || i == size - 1)
@@ -518,14 +516,12 @@ void Decompress(const char *memblock, const int size, const std::string &filenam
                 if (buff[beg] == 48 && len >= 9)
                 {
                     beg++;
-
                     if (beg == DECOMP_BUFF_SIZE)
                     {
                         beg = 0;
                     }
 
                     char byte = 0;
-
                     for (int j = 0; j < 8; j++)
                     {
                         if (buff[beg] == 48)
@@ -572,7 +568,6 @@ void Decompress(const char *memblock, const int size, const std::string &filenam
                     }
 
                     int location = 0;
-
                     for (int j = 0; j < 12; j++)
                     {
                         if (buff[beg] == 48)
@@ -597,7 +592,6 @@ void Decompress(const char *memblock, const int size, const std::string &filenam
                     }
 
                     int length = 0;
-
                     for (int j = 0; j < 5; j++)
                     {
                         if (buff[beg] == 48)
@@ -623,11 +617,8 @@ void Decompress(const char *memblock, const int size, const std::string &filenam
                     }
 
                     length += 4;
-
                     len -= 18;
-
                     char byte = 0;
-
                     for (int j = 0; j < length; j++)
                     {
                         int tem = cacheend - location;
