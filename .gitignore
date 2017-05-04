@@ -1,2 +1,4 @@
-bin/*
+bin/
+data/model.obj.comp
+data/model.obj.comp.decomp
 gcc.txt

@@ -36,6 +36,7 @@ along with LZ77 Compression Tool.  If not, see <http://www.gnu.org/licenses/>.
 #include <cmath>
 #include <fstream>
 #include <iostream>
+#include <memory>
 #include <string>
 #include <stdexcept>
 
@@ -46,7 +47,7 @@ class Llist
 {
   public:
     Llist();
-    unsigned pos;
+    int pos;
     Llist *next;
 };
 
@@ -105,7 +106,7 @@ HashTable::~HashTable()
 void HashTable::AddNode(const char *buff, int p)
 {
     // Traverse the linked list to the end
-    Llist *temp = Table[buff[p]][buff[p + 1]];
+    Llist *temp = Table[(unsigned)buff[p]][(unsigned)buff[p + 1]];
     while (temp->next != 0)
     {
         temp = temp->next;
@@ -118,9 +119,9 @@ void HashTable::AddNode(const char *buff, int p)
 void HashTable::RemoveNode(const char *buff, int p)
 {
     // Remove a node in the hash table
-    Llist *temp = Table[buff[p]][buff[p + 1]];
+    Llist *temp = Table[(unsigned)buff[p]][(unsigned)buff[p + 1]];
     Llist *old = temp;
-    while (temp->pos != p)
+    while (temp->pos != (int)p)
     {
         old = temp;
         temp = temp->next;
@@ -137,14 +138,14 @@ void HashTable::RemoveNode(const char *buff, int p)
 Llist *HashTable::SearchTable(const char *buff, int p)
 {
     // Look up match in table
-    Llist *find = Table[buff[p]][buff[p + 1]];
+    Llist *find = Table[(unsigned)buff[p]][(unsigned)buff[p + 1]];
     return find;
 }
 
 // Forward declaraction of main functions
 void Compress(const char *buff, const int size, const std::string &fn);
 int find_match(HashTable *hash, const char *buff, int &winstart, int &current, const int size);
-void Decompress(const std::string &filename);
+void Decompress(const char *memblock, const int size, const std::string &filename);
 
 class BitBuffer
 {
@@ -319,14 +320,14 @@ int main(int argc, char *argv[])
         }
 
         int size;
-        char *memblock;
+        std::unique_ptr<char> data;
         std::ifstream fin(filename, std::ios::in | std::ios::binary | std::ios::ate);
         if (fin.is_open())
         {
             size = fin.tellg();
-            memblock = new char[size];
+            data = std::unique_ptr<char>(new char[size]);
             fin.seekg(0, std::ios::beg);
-            fin.read(memblock, size);
+            fin.read(data.get(), size);
             fin.close();
         }
         else
@@ -338,20 +339,18 @@ int main(int argc, char *argv[])
         {
             // Send message to user of the mode we chose
             std::cout << "Compressing '" + filename + "'" << std::endl;
-            Compress(memblock, size, filename);
+            Compress(data.get(), size, filename);
         }
         else if (mode.compare("decompress") == 0)
         {
             // Send message to user of the mode we chose
             std::cout << "Decompressing '" + filename + "'" << std::endl;
-            Decompress(filename);
+            Decompress(data.get(), size, filename);
         }
         else
         {
             std::cout << "Mode '" + mode + "' is not valid, expected 'compress' or 'decompress'" << std::endl;
         }
-
-        delete[] memblock;
     }
     catch (std::exception &ex)
     {
@@ -361,10 +360,9 @@ int main(int argc, char *argv[])
     return 0;
 }
 
-void Compress(const char *buff, const int size, const std::string &fn)
+void Compress(const char *memblock, const int size, const std::string &fn)
 {
     const std::string filename = fn + ".comp";
-    int loc = 0;
     int winstart = 0;
     int current = 0;
     int temp;
@@ -375,7 +373,7 @@ void Compress(const char *buff, const int size, const std::string &fn)
     while (i < size)
     {
         temp = current;
-        check = find_match(&hash, buff, winstart, current, size);
+        check = find_match(&hash, memblock, winstart, current, size);
         if (check >= 0)
         {
             bits.addOne();
@@ -385,7 +383,7 @@ void Compress(const char *buff, const int size, const std::string &fn)
         else
         {
             bits.addZero();
-            bits.addByte(buff[current - 1]);
+            bits.addByte(memblock[current - 1]);
             i++;
         }
     }
@@ -469,26 +467,16 @@ int find_match(HashTable *hash, const char *buff, int &winstart, int &current, c
     }
 }
 
-void Decompress(const std::string &filename)
+void Decompress(const char *memblock, const int size, const std::string &filename)
 {
-    int size;
-    char *memblock;
     char buff[DECOMP_BUFF_SIZE];
     int len = 0;
     int beg = 0;
     int end = 0;
     char cache[WINDOW_SIZE];
     int cacheend = 0;
-    std::ifstream fin(filename, std::ios::in | std::ios::binary | std::ios::ate);
-    if (fin.is_open())
-    {
-        size = fin.tellg();
-        memblock = new char[size];
-        fin.seekg(0, std::ios::beg);
-        fin.read(memblock, size);
-        fin.close();
-    }
 
+    // Open output file
     const std::string decomp_file = filename + ".decomp";
     std::ofstream fout(decomp_file, std::ios::out | std::ios::binary);
     for (int i = 0; i < size; i++)
@@ -669,7 +657,4 @@ void Decompress(const std::string &filename)
             }
         }
     }
-
-    // Clean up memory
-    delete[] memblock;
 }
